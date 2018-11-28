@@ -1,38 +1,64 @@
 use std::thread;
 use std::time::Duration;
+use std::sync::{Mutex, Arc};
 
 struct Filosofo{
 	nombre: String,
+    izquierda: usize,
+    derecha: usize,
 }
 
 impl Filosofo{
-	fn new(nombre: &str) -> Filosofo{
+	fn new(nombre: &str, izquierda: usize, derecha: usize) -> Filosofo{
 		Filosofo{
 			nombre: nombre.to_string(),
+            izquierda: izquierda,
+            derecha: derecha,
 		}
 	}
-	fn comer(&self){
+	fn comer(&self, mesa: &Mesa){
+        let _izqiuerda = mesa.tenedores[self.izquierda].lock().unwrap();
+        let _derecha   = mesa.tenedores[self.derecha].lock().unwrap();
+
 		println!("{} esta comiendo.", self.nombre);
 		//thread::sleep_ms(1000);
 		thread::sleep(Duration::from_millis(1000));
 		println!("{} ha finalizado de comer", self.nombre);
 	}
 }
+
+struct Mesa {
+    tenedores : Vec<Mutex<()>>,
+}
+
+
 fn main() {
-    //let f1 = Filosofo::new("Judith Butler");
-    //let f2 = Filosofo::new("Gilles Deleuze");
-    //let f3 = Filosofo::new("Karl Max");
-    //let f4 = Filosofo::new("Emma Goldman");
-    //let f5 = Filosofo::new("Michael Foucault");
+   
+    let mesa = Arc::new (Mesa {tenedores: vec![
+            Mutex::new(()),
+            Mutex::new(()),
+            Mutex::new(()),
+            Mutex::new(()),
+            Mutex::new(()),
+        ]});
+
     let filosofos = vec![
-    	Filosofo::new("Judith Butler"),
-        Filosofo::new("Gilles Deleuze"),
-        Filosofo::new("Karl Max"),
-        Filosofo::new("Emma Goldman"),
-        Filosofo::new("Michael Foucault"),
+    	Filosofo::new("Judith Butler",0,1),
+        Filosofo::new("Gilles Deleuze",1,2),
+        Filosofo::new("Karl Max",2,3),
+        Filosofo::new("Emma Goldman",3,4),
+        Filosofo::new("Michael Foucault",0,4),
     ];
-    
-    for f in &filosofos {
-    	f.comer();
+
+    let handles: Vec<_> = filosofos.into_iter().map(|f|{
+        let mesa = mesa.clone();
+
+    	thread::spawn(move || {
+    		f.comer(&mesa);
+    	})
+    }).collect();
+
+    for h in handles {
+    	h.join().unwrap();
     }
 }
